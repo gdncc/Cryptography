@@ -237,8 +237,8 @@ Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
   let mut A := k.A
   -- KECCAK[c] number round nr := 24
   for h :  round in [:roundConstants.size] do
-    let ⟨_h1, h2⟩ := h -- h1 : col.start <= round, h2 := round < 25
-    A :=  A |> θ |> ρπ |> χ |> (ι · round h2 )
+    let ⟨_h₁, h₂⟩ := h -- h1 : col.start <= round, h2 := round < 25
+    A :=  A |> θ |> ρπ |> χ |> (ι · round h₂ )
   {k with A := A}
 
 -- Store little-endian `UInt64` in `ByteArray`. All Lean supported platforms are little-endian.
