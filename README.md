@@ -33,6 +33,6 @@ Some performance testing code is included. Loops cannot be unrolled for now, if
 one cares about proving some code properties, because of an
 [issue](https://github.com/leanprover/lean4/issues/5324) with Lean's elaborator.
 
-`lake build Cryptography.Hashes.SHA3.test && ./.lake/build/bin/Cryptography-Hashes-SHA3-test`
+`lake build Cryptography.Hashes.SHA3.perftest && ./.lake/build/bin/Cryptography-Hashes-SHA3-perftest`
 
 All array accesses are formally proven to be within bounds. 
