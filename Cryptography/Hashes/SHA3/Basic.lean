@@ -275,7 +275,6 @@ private def absorb {α : Type} { n : Capacity} (k : AbsorbingKeccakC α n) (inpu
   for hi : i in [:inputBytes.size] do
     if bufPos.val == k.val.rate.val - 1 then
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
-      bufPos := bufPos + ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
       let mut A := k.val.A
       for hj : j in [:25] do
         let start := j <<< 3 -- lane size = 8
