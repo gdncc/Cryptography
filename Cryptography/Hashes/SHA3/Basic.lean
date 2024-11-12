@@ -111,6 +111,19 @@ private abbrev RateValue (capacity : Capacity) := Fin (KeccakPPermutationSize - 
 -- An index into `buffer` rate of buffer, where buffer is broken down into |rate|capacity|
 private abbrev RateIndex (capacity : Capacity) := Fin (KeccakPPermutationSize - capacity )
 
+theorem RateIndexLTBlockMinCap {n : Capacity} (ri : RateIndex n) : ri < KeccakPPermutationSize - n := by
+  omega
+
+theorem RateIndexLTBlockMinCapMinOne
+  {n : Capacity}
+  (ri : RateIndex n)
+  (h1 : ¬(ri == KeccakPPermutationSize - n - 1) = true)
+  : ri + 1 < KeccakPPermutationSize - n := by
+  simp at h1
+  have h2 : ri < KeccakPPermutationSize - n :=   (by exact RateIndexLTBlockMinCap ri);
+  refine Nat.add_lt_of_lt_sub ?h
+  omega
+
 private abbrev FixedBuffer := {val : ByteArray // val.size =  KeccakPPermutationSize }
 
 @[simp] theorem FixedBufferSize (fb : FixedBuffer):  fb.val.size = KeccakPPermutationSize := by exact fb.2
@@ -267,13 +280,24 @@ private def storeUInt64 (num : UInt64) : ByteArray := Id.run do
 private class Absorb (α : Type) (β : Type) where
   absorb : α  → β →  α
 
-private def absorb {α : Type} { n : Capacity} (k : AbsorbingKeccakC α n) (inputBytes : ByteArray) : AbsorbingKeccakC α n := Id.run do
+-- We force the caller to prove that  RateIndex pos + offset will not silently wrap as RateIndex is a Fin.
+-- if the implementation is correct, it should not happen but want to avoid
+@[always_inline,inline] private def RateIndex.add
+  (pos offset : RateIndex n)
+  (_ : pos + offset < KeccakPPermutationSize - n ) :=
+  pos + offset
+
+private def absorb
+  {α : Type}
+  {n : Capacity}
+  (k : AbsorbingKeccakC α n)
+  (inputBytes : ByteArray)
+  : AbsorbingKeccakC α n := Id.run do
   let mut k := k
   let mut buffer := k.val.buffer
   let mut bufPos := k.val.bufPos
-
   for hi : i in [:inputBytes.size] do
-    if bufPos.val == k.val.rate.val - 1 then
+    if hif : bufPos.val == KeccakPPermutationSize - n - 1 then
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
       let mut A := k.val.A
       for hj : j in [:25] do
@@ -281,9 +305,11 @@ private def absorb {α : Type} { n : Capacity} (k : AbsorbingKeccakC α n) (inpu
         A := subtypeModify A j ((A[j]) ^^^
                                   (FixedBuffer.toUInt64LE buffer start (by let ⟨ _hj₁, hj₂  ⟩ := hj ; simp at hj₂  ; simp [KeccakPPermutationSize]; omega)))
       k := {k with val := keccakP {k.val with A := A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}}
-
-    buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
-    bufPos := bufPos + ⟨ 1, by simp [KeccakPPermutationSize]; omega⟩
+      buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
+      bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
+    else
+      buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
+      bufPos := RateIndex.add  bufPos  ⟨ 1, by simp [KeccakPPermutationSize]; omega⟩ ( by exact RateIndexLTBlockMinCapMinOne bufPos hif)
 
   {k with val := {k.val with buffer := buffer, bufPos := bufPos }}
 
