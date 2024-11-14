@@ -140,17 +140,17 @@ instance : GetElem (FixedBuffer) Nat UInt8 (λ fb i ↦ i < fb.val.size ) where
   getElem fb idx h :=  fb.val[idx]
 
 /-- The base cryptographic sponge context -/
-private structure KeccakC (hf : HashFunction) (n : Capacity)  where
+private structure KeccakC (hf : HashFunction)  where
   A  : State
   state : SpongeState := SpongeState.absorbing
-  rate : RateValue n := ⟨ 0, by omega ⟩
+  rate : RateValue hf.capacity := ⟨ 0, by omega ⟩
   buffer  : FixedBuffer
-  bufPos : RateIndex n := ⟨ 0, by simp [KeccakPPermutationSize]; omega ⟩
+  bufPos : RateIndex hf.capacity := ⟨ 0, by simp [KeccakPPermutationSize]; omega ⟩
   outputBytesLen := 0
 
-private def mkKeccakCBase (hf : HashFunction) ( n : Capacity ) : KeccakC hf n :=
+private def mkKeccakCBase (hf : HashFunction) : KeccakC hf :=
   let A  := mkState
-  let rate : RateValue n := ⟨ KeccakPPermutationSize - n, by omega ⟩ --  KECCAK[c] b=1600
+  let rate : RateValue hf.capacity := ⟨ KeccakPPermutationSize - hf.capacity, by omega ⟩ --  KECCAK[c] b=1600
   let buffer := mkFixedBuffer
   {A := A, rate := rate, outputBytesLen := hf.outputBitsLen, buffer := buffer }
 
@@ -158,12 +158,12 @@ private def mkKeccakCBase (hf : HashFunction) ( n : Capacity ) : KeccakC hf n :=
 -- `AbsorbingKeccakC` : our sponge is absorbing
 -- `SqueezingKeccakC` : our sponge is squeezing
 -- subtypes require a proof that their properties hold
-private def AbsorbingKeccakC (hf : HashFunction) ( n : Capacity) : Type := {keccak : KeccakC hf n // keccak.state = SpongeState.absorbing}
-private def SqueezingKeccakC (hf : HashFunction) ( n : Capacity) : Type := {keccak : KeccakC hf n // keccak.state = SpongeState.squeezing}
+private def AbsorbingKeccakC (hf : HashFunction) : Type := {keccak : KeccakC hf // keccak.state = SpongeState.absorbing}
+private def SqueezingKeccakC (hf : HashFunction) : Type := {keccak : KeccakC hf // keccak.state = SpongeState.squeezing}
 
 -- Our sponge can only be instantiated as absorbing
-private def mkKeccakC (hf : HashFunction) (n : Capacity) : {keccak : KeccakC hf n // keccak.state = SpongeState.absorbing}  :=
-  let base := {mkKeccakCBase hf n with state := SpongeState.absorbing}
+private def mkKeccakC (hf : HashFunction) : {keccak : KeccakC hf // keccak.state = SpongeState.absorbing}  :=
+  let base := {mkKeccakCBase hf with state := SpongeState.absorbing}
   ⟨base, rfl⟩
 
 @[always_inline, inline] private def rotateBy (x: UInt64) (howMuch : UInt64) : UInt64 :=
@@ -234,7 +234,7 @@ private def χ (A' : State) : State := Id.run do
 The KECCAK-p[b, nr] permutation consists of nr iterations of:
 Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
 -/
-@[always_inline,inline] private def keccakP {hf : HashFunction} { n : Capacity} (k : KeccakC hf n) : KeccakC hf n := Id.run do
+@[always_inline,inline] private def keccakP {hf : HashFunction} (k : KeccakC hf) : KeccakC hf := Id.run do
   let mut A := k.A
   -- KECCAK[c] number round nr := 24
   for h :  round in [:roundConstants.size] do
@@ -277,15 +277,14 @@ private class Absorb (α : Type) (β : Type) where
 
 private def absorb
   {hf : HashFunction}
-  {n : Capacity}
-  (k : AbsorbingKeccakC hf n)
+  (k : AbsorbingKeccakC hf)
   (inputBytes : ByteArray)
-  : AbsorbingKeccakC hf n := Id.run do
+  : AbsorbingKeccakC hf := Id.run do
   let mut k := k
   let mut buffer := k.val.buffer
   let mut bufPos := k.val.bufPos
   for hi : i in [:inputBytes.size] do
-    if hif : bufPos.val == KeccakPPermutationSize - n - 1 then
+    if hif : bufPos.val == KeccakPPermutationSize - hf.capacity - 1 then
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
       let mut A := k.val.A
       for hj : j in [:25] do
@@ -304,12 +303,12 @@ private def absorb
 private class Squeeze (α : Type) (β : Type) (γ : outParam Type) where
   squeeze : α  → β → γ
 
-private def squeezeAbsorbedInput {n : Capacity }(k : SqueezingKeccakC α n) (len : Nat) : SqueezingKeccakC α n × ByteArray := Id.run do
+private def squeezeAbsorbedInput (k : SqueezingKeccakC hf) (len : Nat) : SqueezingKeccakC hf × ByteArray := Id.run do
   let mut k := k
   let mut output := ByteArray.mkEmpty len
   let mut updatedOutputBytesLen := len
   while updatedOutputBytesLen > 0 do
-    let mut  blockSize : RateValue n := ⟨ min updatedOutputBytesLen k.val.rate, by omega ⟩
+    let mut  blockSize : RateValue hf.capacity := ⟨ min updatedOutputBytesLen k.val.rate, by omega ⟩
     for hi : i in [: (blockSize + 7) / 8] do -- ceil
       output := output.append $ storeUInt64 (k.val.A[i]'(by let ⟨ _hi₁, hi₂⟩  := hi; simp at hi₂ ; simp_all [KeccakPPermutationSize]; omega))
     updatedOutputBytesLen := updatedOutputBytesLen - blockSize
@@ -317,7 +316,7 @@ private def squeezeAbsorbedInput {n : Capacity }(k : SqueezingKeccakC α n) (len
       k := {k with val := keccakP k.val}
   (k, output.extract 0  len)
 
-private instance {n : Capacity } : Squeeze (SqueezingKeccakC α n) Nat (Id (SqueezingKeccakC α n × ByteArray)) where
+private instance : Squeeze (SqueezingKeccakC α) Nat (Id (SqueezingKeccakC α × ByteArray)) where
   squeeze  := squeezeAbsorbedInput
 
 private def DomainDelimitAndPad101
@@ -338,7 +337,7 @@ private def DomainDelimitAndPad101
     buffer := fixedBufferModify buffer ⟨  rate - 1, by simp [KeccakPPermutationSize]; omega  ⟩  (0x80).toUInt8
   buffer
 
-private def squeezeNotFullyAbsorbedInput {n : Capacity } (ak : AbsorbingKeccakC hf n) (len : Nat) : SqueezingKeccakC hf n × ByteArray := Id.run do
+private def squeezeNotFullyAbsorbedInput (ak : AbsorbingKeccakC hf) (len : Nat) : SqueezingKeccakC hf × ByteArray := Id.run do
   let mut ak := ak
   -- absorb
   let buffer := DomainDelimitAndPad101 ak.val.buffer ak.val.bufPos ak.val.rate hf.paddingDelimiter
@@ -349,10 +348,10 @@ private def squeezeNotFullyAbsorbedInput {n : Capacity } (ak : AbsorbingKeccakC 
                               (FixedBuffer.toUInt64LE  buffer start (by  let ⟨ _hi₀, hi₁ ⟩ := hi ; simp at hi₁ ;simp [KeccakPPermutationSize]; omega)))
   ak := {ak with val := keccakP {ak.val with A := A, buffer := buffer}}
   -- squeeze
-  let sk : SqueezingKeccakC hf n := ⟨ {ak.val with state := SpongeState.squeezing}, by trivial ⟩
+  let sk : SqueezingKeccakC hf := ⟨ {ak.val with state := SpongeState.squeezing}, by trivial ⟩
   Squeeze.squeeze sk len
 
-private instance : Squeeze (AbsorbingKeccakC α n) Nat (Id (SqueezingKeccakC α n × ByteArray))  where
+private instance : Squeeze (AbsorbingKeccakC α) Nat (Id (SqueezingKeccakC α × ByteArray))  where
   squeeze := squeezeNotFullyAbsorbedInput
 
 -- Define 2 macros to implement the hash and xof functions.
@@ -360,53 +359,51 @@ open Lean
 
 macro "defhash" id:ident ":=" e:term  : command => `(
     def kf := $e
-    def c : Capacity := kf.capacity
 
-    instance : Absorb (AbsorbingKeccakC kf c) ByteArray where
+    instance : Absorb (AbsorbingKeccakC kf) ByteArray where
       absorb := absorb
-    instance : Squeeze (SqueezingKeccakC kf c) Nat (Id (SqueezingKeccakC kf c × ByteArray)) where
+    instance : Squeeze (SqueezingKeccakC kf) Nat (Id (SqueezingKeccakC kf × ByteArray)) where
       squeeze  := squeezeAbsorbedInput
-    instance : Squeeze (AbsorbingKeccakC kf c) Nat (Id (SqueezingKeccakC kf c × ByteArray)) where
+    instance : Squeeze (AbsorbingKeccakC kf) Nat (Id (SqueezingKeccakC kf × ByteArray)) where
       squeeze  := squeezeNotFullyAbsorbedInput
 
   namespace $id
-    def $(mkIdent `final) (s : AbsorbingKeccakC kf c) : ByteArray  :=
+    def $(mkIdent `final) (s : AbsorbingKeccakC kf) : ByteArray  :=
       (Squeeze.squeeze s s.val.outputBytesLen).2
 
-    def $(mkIdent `update) (s : AbsorbingKeccakC kf c) (bs : ByteArray)  :=
+    def $(mkIdent `update) (s : AbsorbingKeccakC kf) (bs : ByteArray)  :=
       Absorb.absorb s bs
 
-    def $(mkIdent `mk) := mkKeccakC kf c
+    def $(mkIdent `mk) := mkKeccakC kf
 
     def $(mkIdent `hashData) (bs : ByteArray) : ByteArray :=
-      let k : AbsorbingKeccakC kf c := mkKeccakC kf c
+      let k : AbsorbingKeccakC kf := mkKeccakC kf
       (Squeeze.squeeze (Absorb.absorb k bs) k.val.outputBytesLen).2
   end $id
 )
 
 macro "defxof" id:ident ":=" e:term : command => `(
     def kf := $e
-    def c : Capacity := kf.capacity
 
-    instance : Absorb (AbsorbingKeccakC kf c) ByteArray where
+    instance : Absorb (AbsorbingKeccakC kf) ByteArray where
       absorb := absorb
-    instance : Squeeze (SqueezingKeccakC kf c) Nat (Id (SqueezingKeccakC kf c × ByteArray)) where
+    instance : Squeeze (SqueezingKeccakC kf) Nat (Id (SqueezingKeccakC kf × ByteArray)) where
       squeeze  := squeezeAbsorbedInput
-    instance : Squeeze (AbsorbingKeccakC kf c) Nat (Id (SqueezingKeccakC kf c × ByteArray)) where
+    instance : Squeeze (AbsorbingKeccakC kf) Nat (Id (SqueezingKeccakC kf × ByteArray)) where
       squeeze  := squeezeNotFullyAbsorbedInput
 
   namespace $id
-    def $(mkIdent `mk) := mkKeccakC kf c
+    def $(mkIdent `mk) := mkKeccakC kf
 
-    def $(mkIdent `squeeze) {α : Type} [Squeeze α Nat ((SqueezingKeccakC kf c) × ByteArray)]
-          (k : α) (l : Nat) : ((SqueezingKeccakC kf c) × ByteArray)  :=
+    def $(mkIdent `squeeze) {α : Type} [Squeeze α Nat ((SqueezingKeccakC kf) × ByteArray)]
+          (k : α) (l : Nat) : ((SqueezingKeccakC kf) × ByteArray)  :=
             Squeeze.squeeze k l
 
-    def $(mkIdent `toSqueezing) [Squeeze (AbsorbingKeccakC kf c) Nat ((SqueezingKeccakC kf c) × ByteArray)]
-          (k : (AbsorbingKeccakC kf c)) : (SqueezingKeccakC kf c) :=
+    def $(mkIdent `toSqueezing) [Squeeze (AbsorbingKeccakC kf) Nat ((SqueezingKeccakC kf) × ByteArray)]
+          (k : (AbsorbingKeccakC kf)) : (SqueezingKeccakC kf) :=
             (Squeeze.squeeze k 0).1
 
-    def $(mkIdent `absorb) (s : AbsorbingKeccakC kf c) (bs : ByteArray) :=
+    def $(mkIdent `absorb) (s : AbsorbingKeccakC kf) (bs : ByteArray) :=
       absorb s bs
   end $id
 )
