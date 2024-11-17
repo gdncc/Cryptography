@@ -359,8 +359,7 @@ private def squeezeNotFullyAbsorbedInput {hf : HashFunction} (ak : AbsorbingKecc
 private instance {hf : HashFunction}  : Squeeze (AbsorbingKeccakC hf) Nat (Id (SqueezingKeccakC hf × ByteArray))  where
   squeeze := squeezeNotFullyAbsorbedInput
 
--- Define 2 macros to implement the hash and xof functions.
-open Lean
+-- Implement the hash and xof function APIs.
 
 namespace HashFunction
 
