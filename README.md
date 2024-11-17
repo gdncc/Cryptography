@@ -16,7 +16,7 @@ functions (XOFs), SHAKE128 and SHAKE256 of the SHA-3 family of functions in pure
 Lean 4. It provides one-shot, and streaming APIs.
 
 The library makes use of many Lean 4 features, including dependent typing, type
-classes, macros, and proofs.
+classes, and proofs.
 
 File [example.lean](Cryptography/Hashes/SHA3/example.lean) shows sample usage of
 the API. Build and run:
