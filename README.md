@@ -36,3 +36,5 @@ one cares about proving some code properties, because of an
 `lake build Cryptography.Hashes.SHA3.perftest && ./.lake/build/bin/Cryptography-Hashes-SHA3-perftest`
 
 All array accesses are formally proven to be within bounds. 
+
+See paper [Cryptography Experiments In Lean 4: SHA-3 Implementation](https://eprint.iacr.org/2024/1880).
