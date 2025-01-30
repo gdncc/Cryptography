@@ -244,18 +244,16 @@ Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
     A :=  A |> θ |> ρπ |> χ |> (ι · round h₂ )
   {k with A := A}
 
--- Store little-endian `UInt64` in `ByteArray`. All Lean supported platforms are little-endian.
-private def storeUInt64 (num : UInt64) : ByteArray := Id.run do
-  let mut bs := ByteArray.mk $ mkArray 8 0
-  bs := bs.set ( 0 : Fin 8) $ (num &&& 0xff).toUInt8
-  bs := bs.set ( 1 : Fin 8) $ (num >>> 0x08  &&& 0xff).toUInt8
-  bs := bs.set ( 2 : Fin 8) $ (num >>> 0x10  &&& 0xff).toUInt8
-  bs := bs.set ( 3 : Fin 8) $ (num >>> 0x18  &&& 0xff).toUInt8
-  bs := bs.set ( 4 : Fin 8) $ (num >>> 0x20  &&& 0xff).toUInt8
-  bs := bs.set ( 5 : Fin 8) $ (num >>> 0x28  &&& 0xff).toUInt8
-  bs := bs.set ( 6 : Fin 8) $ (num >>> 0x30  &&& 0xff).toUInt8
-  bs := bs.set ( 7 : Fin 8) $ (num >>> 0x38  &&& 0xff).toUInt8
-  bs
+private def storeUInt64 (num : UInt64) : ByteArray :=
+  ByteArray.mk $ mkArray 8 0
+      |>.set 0 num.toUInt8
+      |>.set 1 (num >>> 0x08).toUInt8
+      |>.set 2 (num >>> 0x10).toUInt8
+      |>.set 3 (num >>> 0x18).toUInt8
+      |>.set 4 (num >>> 0x20).toUInt8
+      |>.set 5 (num >>> 0x28).toUInt8
+      |>.set 6 (num >>> 0x30).toUInt8
+      |>.set 7 (num >>> 0x38).toUInt8
 
 @[always_inline,inline] private def FixedBuffer.toUInt64LE  (fb : FixedBuffer) (index : Nat) (h : 7 + index < fb.val.size  ) : UInt64 :=
   (fb.val[7 + index]'(by rw [fb.2]; omega )).toUInt64 <<< 0x38 |||
