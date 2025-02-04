@@ -217,15 +217,14 @@ private def ρπ (A : State) : State := Id.run do
 private def χ (A' : State) : State := Id.run do
   let mut A := A'
   for hx : x in [:5] do
+    have phx : x < 5 := hx.2.1
     for hy : y in [:5] do
+      have phy : y < 5 := hy.2.1
       A := subtypeModify A (x + 5 * y)
-            (A'[x + 5 * y]'(by
-              let ⟨ _hx₁, hx₂ ⟩ := hx; let ⟨ _hy₁, hy₂ ⟩ := hy ;simp at hx₂; simp  at hy₂; omega) ^^^
-            ((A'[(x + 1) % 5 + 5 * y]'(by
-              let ⟨ _hx₁, hx₂ ⟩ := hx; let ⟨ _hy₁, hy₂ ⟩ := hy ;simp at hx₂; simp  at hy₂; omega) ^^^
+            (A'[x + 5 * y]'(by omega) ^^^
+            ((A'[(x + 1) % 5 + 5 * y]'(by omega) ^^^
             0xffffffffffffffff) &&&
-            (A'[(x + 2) %5 + 5 * y]'(by
-              let ⟨ _hx₁, hx₂ ⟩ := hx; let ⟨ _hy₁, hy₂ ⟩ := hy ;simp at hx₂; simp  at hy₂; omega) )))
+            (A'[(x + 2) %5 + 5 * y]'(by omega) )))
   A
 
 -- iota
@@ -241,7 +240,7 @@ Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
   -- KECCAK[c] number round nr := 24
   for h :  round in [:roundConstants.size] do
     let ⟨_h₁, h₂⟩ := h -- h1 : col.start <= round, h2 := round < 25
-    A :=  A |> θ |> ρπ |> χ |> (ι · round h₂ )
+    A :=  A |> θ |> ρπ |> χ |> (ι · round h₂.1  )
   {k with A := A}
 
 private def storeUInt64 (num : UInt64) : ByteArray :=
@@ -288,9 +287,10 @@ private def absorb
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
       let mut A := k.val.A
       for hj : j in [:25] do
+        have phj : j < 25 := hj.2.1
         let start := j <<< 3 -- lane size = 8
         A := subtypeModify A j ((A[j]) ^^^
-                                  (FixedBuffer.toUInt64LE buffer start (by let ⟨ _hj₁, hj₂  ⟩ := hj ; simp at hj₂  ; simp [KeccakPPermutationSize]; omega)))
+                                  (FixedBuffer.toUInt64LE buffer start (by simp [KeccakPPermutationSize]; omega)))
       k := {k with val := keccakP {k.val with A := A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}}
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
       bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
@@ -313,7 +313,8 @@ private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (
   while updatedOutputBytesLen > 0 do
     let mut  blockSize : RateValue hf.capacity := ⟨ min updatedOutputBytesLen k.val.rate, by omega ⟩
     for hi : i in [: (blockSize + 7) / 8] do -- ceil
-      output := output.append $ storeUInt64 (k.val.A[i]'(by let ⟨ _hi₁, hi₂⟩  := hi; simp at hi₂ ; simp_all [KeccakPPermutationSize]; omega))
+      have phi : i < (blockSize + 7) / 8:= hi.2.1
+      output := output.append $ storeUInt64 (k.val.A[i]'(by simp_all [KeccakPPermutationSize]; omega))
     updatedOutputBytesLen := updatedOutputBytesLen - blockSize
     if updatedOutputBytesLen > 0 then
       k := {k with val := keccakP k.val}
@@ -336,7 +337,8 @@ private def DomainDelimitAndPad101
   else
     buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  paddingDelimiter.toUInt8
     for hi : i in [bufPos + 1 : rate - 1 ] do
-      buffer := fixedBufferModify buffer ⟨ i, by let ⟨ _hi₁, hi₂⟩ := hi; simp at hi₂ ; omega ⟩  0
+      have phi : i < rate - 1 := hi.2.1
+      buffer := fixedBufferModify buffer ⟨ i, by omega ⟩  0
     buffer := fixedBufferModify buffer ⟨  rate - 1, by simp [KeccakPPermutationSize]; omega  ⟩  (0x80).toUInt8
   buffer
 
@@ -346,9 +348,10 @@ private def squeezeNotFullyAbsorbedInput {hf : HashFunction} (ak : AbsorbingKecc
   let buffer := DomainDelimitAndPad101 ak.val.buffer ak.val.bufPos ak.val.rate hf.paddingDelimiter
   let mut A := ak.val.A
   for hi : i in [:25] do
+    have phi : i < 25 := hi.2.1
     let start := i <<< 3
     A := subtypeModify A i ((A[i]) ^^^
-                              (FixedBuffer.toUInt64LE  buffer start (by  let ⟨ _hi₀, hi₁ ⟩ := hi ; simp at hi₁ ;simp [KeccakPPermutationSize]; omega)))
+                              (FixedBuffer.toUInt64LE  buffer start (by simp [KeccakPPermutationSize]; omega)))
   ak := {ak with val := keccakP {ak.val with A := A, buffer := buffer}}
   -- squeeze
   let sk : SqueezingKeccakC hf := ⟨ {ak.val with state := SpongeState.squeezing}, by trivial ⟩
