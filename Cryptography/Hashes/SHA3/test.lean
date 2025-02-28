@@ -41,7 +41,7 @@ def testXOFChunked (f : XOF) (msg : ByteArray ) (outLen : Nat) (chunkSize : Nat)
   for _ in [:outLen / chunkSize] do
     ( state, bs ) := f.squeeze state chunkSize
     output := ByteArray.append output bs
-  if outLen % 13 > 0 then
+  if outLen % chunkSize > 0 then
     let mut bs2 := ByteArray.mkEmpty $ (outLen % chunkSize)
     ( state, bs2 ) := f.squeeze state (outLen % chunkSize)
     output := ByteArray.append output bs2
