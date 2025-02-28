@@ -323,8 +323,8 @@ private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (
     if updatedOutputBytesLen > 0 then
       k := {k with val := keccakP k.val}
   ({k with val := {k.val with requestedLength := requestedLength}},
-    output.extract (0 + startOffset)
-                  (len   + startOffset))
+    output.extract startOffset (len + startOffset))
+
 private instance {hf : HashFunction} : Squeeze (SqueezingKeccakC hf) Nat (Id (SqueezingKeccakC hf × ByteArray)) where
   squeeze  := squeezeAbsorbedInput
 
