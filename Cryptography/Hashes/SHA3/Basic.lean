@@ -149,6 +149,7 @@ private structure KeccakC (hf : HashFunction)  where
   buffer  : FixedBuffer
   bufPos : RateIndex hf.capacity := ⟨ 0, by simp [KeccakPPermutationSize]; omega ⟩
   outputBytesLen := 0
+  requestedLength := 0
 
 private def mkKeccakCBase (hf : HashFunction) : KeccakC hf :=
   let A  := mkState
@@ -309,17 +310,21 @@ private class Squeeze (α : Type) (β : Type) (γ : outParam Type) where
 private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (len : Nat) : SqueezingKeccakC hf × ByteArray := Id.run do
   let mut k := k
   let mut output := ByteArray.mkEmpty len
-  let mut updatedOutputBytesLen := len
+  let mut updatedOutputBytesLen := len + k.val.requestedLength
+  let requestedLength := k.val.requestedLength + len
+  let startingBlock := k.val.requestedLength % k.val.rate / 8
+  let startOffset := k.val.requestedLength % 8
   while updatedOutputBytesLen > 0 do
     let mut  blockSize : RateValue hf.capacity := ⟨ min updatedOutputBytesLen k.val.rate, by omega ⟩
-    for hi : i in [: (blockSize + 7) / 8] do -- ceil
+    for hi : i in [startingBlock: (blockSize + 7) / 8] do
       have phi : i < (blockSize + 7) / 8:= hi.2.1
       output := output.append $ storeUInt64 (k.val.A[i]'(by simp_all [KeccakPPermutationSize]; omega))
     updatedOutputBytesLen := updatedOutputBytesLen - blockSize
     if updatedOutputBytesLen > 0 then
       k := {k with val := keccakP k.val}
-  (k, output.extract 0  len)
-
+  ({k with val := {k.val with requestedLength := requestedLength}},
+    output.extract (0 + startOffset)
+                  (len   + startOffset))
 private instance {hf : HashFunction} : Squeeze (SqueezingKeccakC hf) Nat (Id (SqueezingKeccakC hf × ByteArray)) where
   squeeze  := squeezeAbsorbedInput
 

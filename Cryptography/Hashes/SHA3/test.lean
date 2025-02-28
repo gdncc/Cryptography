@@ -34,6 +34,31 @@ def testSHA3Sponge (input : String) (resultLength : Nat) (fn: ByteArray →  Nat
   let result := fn d resultLength
   pure $ HexString.toHexString result == expectedResult
 
+def testXOFChunked (f : XOF) (msg : ByteArray ) (outLen : Nat) (chunkSize : Nat) (expectedResult : String) := Id.run do
+  let mut state := f.mk |> (f.absorb · msg) |> f.toSqueezing
+  let mut output := ByteArray.mkEmpty outLen
+  let mut bs := ByteArray.mkEmpty chunkSize
+  for _ in [:outLen / chunkSize] do
+    ( state, bs ) := f.squeeze state chunkSize
+    output := ByteArray.append output bs
+  if outLen % 13 > 0 then
+    let mut bs2 := ByteArray.mkEmpty $ (outLen % chunkSize)
+    ( state, bs2 ) := f.squeeze state (outLen % chunkSize)
+    output := ByteArray.append output bs2
+  pure $ (HexString.toHexString output) == expectedResult
+
+def testSpongeMsgChunkedOutput (file : String) (f : XOF ) (chunkSize : Nat) :=  do
+  let cavsfile ←  slurpMsgFile file
+  let records := cavsfile.records
+  let total := cavsfile.records.size
+  let mut pass := 0
+  let mut fail := 0
+  for r in records do
+      let d ←   IO.ofExcept $ HexString.parse (r.msg.take $ r.len / 8 * 2)
+      let res := testXOFChunked f d (cavsfile.len / 8)  chunkSize r.md
+        if res == true then pass := pass + 1 else fail := fail + 1
+   pure (total , pass, fail)
+
 def testSpongeMsg (file : String) (fn: ByteArray → Nat →  ByteArray )  :=  do
   let cavsfile ←  slurpMsgFile file
   let records := cavsfile.records
@@ -55,7 +80,7 @@ def testSpongeVariableOut (file : String) (fn: ByteArray → Nat →  ByteArray 
   for r in records do
     match testSHA3Sponge (r.msg) (r.outputLen / 8 ) fn r.output with
       | Except.ok true => pass := pass + 1
-      | _ => fail := 
+      | _ => fail :=
         fail + 1
   pure (total , pass, fail)
 
@@ -72,7 +97,7 @@ def testHashMonteCarlo (file : String) (fn: ByteArray → ByteArray ) := do
       let msg := mds.get! $ j - 1
       mds := mds.set! j $ fn msg
     seed := mds.get! 1000
-  let result :=  HexString.toHexString seed  
+  let result :=  HexString.toHexString seed
   pure $ result == last_record.md
 
 -- Encode `ByteArray` of size 2 as big  endian  `UInt16`.
@@ -102,14 +127,14 @@ def testXofMonteCarlo (file : String) (fn: ByteArray → Nat →  ByteArray) := 
       else
         msg := ((mds.get! $ j - 1).extract 0 16 )
       let r := fn msg outputLen
-      mds := mds.set! j r 
+      mds := mds.set! j r
       let rightMostOutputBits :=  readUInt16be $ r.extract (r.size - 2) r.size
-      outputLen := min + (rightMostOutputBits % range).toNat 
+      outputLen := min + (rightMostOutputBits % range).toNat
     seed := mds.get! 1000
-  
-  let result :=  HexString.toHexString seed  
+
+  let result :=  HexString.toHexString seed
   pure $ result == last_record.output
- 
+
 def SHA3_224Files :=
   ["Cryptography/test/Hashes/SHA3/sha-3bytetestvectors/SHA3_224ShortMsg.rsp",
   "Cryptography/test/Hashes/SHA3/sha-3bytetestvectors/SHA3_224LongMsg.rsp",
@@ -150,7 +175,7 @@ def testHashEqUpdateFinal :=
   (HexString.toHexString $ SHA3_256.hashData c) == (HexString.toHexString  $ SHA3_256.final state)
 
 def main : IO Unit := do
-  
+
   IO.println s!"testHashEqUpdateFinal() success:  {testHashEqUpdateFinal}"
 
   for file in (SHA3_224Files.dropLast ) do
@@ -179,6 +204,22 @@ def main : IO Unit := do
       (SHAKE256.mk |> (SHAKE256.absorb · msg) |> (SHAKE256.squeeze · outLen)).2 )
     IO.println s!"{file} total: {t} pass: {p} fail: {f}"
 
+  for file in (SHAKE128_Files.take 2 ) do
+    let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE128 1
+    IO.println s!"{file} (byte per byte) total: {t} pass: {p} fail: {f}"
+
+  for file in (SHAKE256_Files.take 2 ) do
+    let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE256 1
+    IO.println s!"{file} (byte per byte) total: {t} pass: {p} fail: {f}"
+
+    for file in (SHAKE128_Files.take 2 ) do
+    let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE128 13
+    IO.println s!"{file} (13 bytes chunks) total: {t} pass: {p} fail: {f}"
+
+  for file in (SHAKE256_Files.take 2 ) do
+    let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE256 13
+    IO.println s!"{file} (13 bytes chunks) total: {t} pass: {p} fail: {f}"
+
   let file := SHAKE128_Files.get! 2
   let (t,p,f) ← testSpongeVariableOut file (fun  msg outLen =>
       (SHAKE128.mk |> (SHAKE128.absorb · msg) |> (SHAKE128.squeeze · outLen)).2 )
@@ -192,7 +233,7 @@ def main : IO Unit := do
   let file := SHA3_224Files.get! 2
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_224.hashData d
   IO.println s!"{file} success: {r}"
-  
+
   let file := SHA3_256Files.get! 2
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_256.hashData d
   IO.println s!"{file} success: {r}"
