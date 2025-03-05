@@ -212,7 +212,7 @@ def main : IO Unit := do
     let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE256 1
     IO.println s!"{file} (byte per byte) total: {t} pass: {p} fail: {f}"
 
-    for file in (SHAKE128_Files.take 2 ) do
+  for file in (SHAKE128_Files.take 2 ) do
     let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE128 13
     IO.println s!"{file} (13 bytes chunks) total: {t} pass: {p} fail: {f}"
 
