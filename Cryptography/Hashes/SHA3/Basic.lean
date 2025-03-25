@@ -293,7 +293,6 @@ private def absorb
         A := subtypeModify A j ((A[j]) ^^^
                                   (FixedBuffer.toUInt64LE buffer start (by simp [KeccakPPermutationSize]; omega)))
       k := {k with val := keccakP {k.val with A := A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}}
-      buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
       bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
     else
       buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
