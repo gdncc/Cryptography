@@ -52,8 +52,8 @@ private def ByteArrayToHexString (bs : ByteArray) : String := Id.run do
   for b in bs do
     let hi := (b.toNat &&& 0xf0) >>> 4
     let lo := b.toNat &&& 0x0f
-    res := res.push $ chars.get! hi
-    res := res.push $ chars.get! lo
+    res := res.push $ chars[hi]!
+    res := res.push $ chars[lo]!
   res
 
 instance : ToHexString ByteArray where

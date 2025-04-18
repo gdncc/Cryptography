@@ -88,15 +88,15 @@ def testSpongeVariableOut (file : String) (fn: ByteArray → Nat →  ByteArray 
 def testHashMonteCarlo (file : String) (fn: ByteArray → ByteArray ) := do
   let cavsfile ←  slurpHashMonteFile file
   let records := cavsfile.records
-  let last_record := records.get! (records.size - 1)
+  let last_record := records[records.size - 1]!
   let mut seed ←  IO.ofExcept $ HexString.parse cavsfile.seed
   let mut mds : Array ByteArray := mkArray 1001 $ ByteArray.mk #[]
   for _ in [0:100] do
     mds := mds.set! 0 seed
     for j in [1:1001] do
-      let msg := mds.get! $ j - 1
+      let msg := mds[j - 1]!
       mds := mds.set! j $ fn msg
-    seed := mds.get! 1000
+    seed := mds[1000]!
   let result :=  HexString.toHexString seed
   pure $ result == last_record.md
 
@@ -109,7 +109,7 @@ def readUInt16be (bs : ByteArray) : UInt16 :=
 def testXofMonteCarlo (file : String) (fn: ByteArray → Nat →  ByteArray) := do
   let cavsfile ←  slurpXofMonteFile file
   let records := cavsfile.records
-  let last_record := records.get! (records.size - 1)
+  let last_record := records[records.size - 1]!
   let mut seed ←  IO.ofExcept $ HexString.parse cavsfile.msg
   let min := cavsfile.minOutputLen / 8
   let max := cavsfile.maxOutputLen / 8
@@ -120,17 +120,17 @@ def testXofMonteCarlo (file : String) (fn: ByteArray → Nat →  ByteArray) := 
     mds := mds.set! 0 seed
     for j in [1:1001] do
       let mut msg := ByteArray.empty
-      let mut mdlen := (mds.get! $ j - 1).size
+      let mut mdlen := mds[j - 1]!.size
       if mdlen < 16 then
         mdlen := 16 - mdlen
-        msg := ((mds.get! $ j - 1).extract 0 16 ).append ( ByteArray.mk $  mkArray mdlen 0)
+        msg := (mds[j - 1]!.extract 0 16 ).append ( ByteArray.mk $  mkArray mdlen 0)
       else
-        msg := ((mds.get! $ j - 1).extract 0 16 )
+        msg := mds[j - 1]!.extract 0 16 
       let r := fn msg outputLen
       mds := mds.set! j r
-      let rightMostOutputBits :=  readUInt16be $ r.extract (r.size - 2) r.size
+      let rightMostOutputBits := readUInt16be $ r.extract (r.size - 2) r.size
       outputLen := min + (rightMostOutputBits % range).toNat
-    seed := mds.get! 1000
+    seed := mds[1000]!
 
   let result :=  HexString.toHexString seed
   pure $ result == last_record.output
@@ -220,38 +220,38 @@ def main : IO Unit := do
     let (t,p,f) ← testSpongeMsgChunkedOutput file SHAKE256 13
     IO.println s!"{file} (13 bytes chunks) total: {t} pass: {p} fail: {f}"
 
-  let file := SHAKE128_Files.get! 2
+  let file := SHAKE128_Files[2]!
   let (t,p,f) ← testSpongeVariableOut file (fun  msg outLen =>
       (SHAKE128.mk |> (SHAKE128.absorb · msg) |> (SHAKE128.squeeze · outLen)).2 )
   IO.println s!"{file} total: {t} pass: {p} fail: {f}"
 
-  let file := SHAKE256_Files.get! 2
+  let file := SHAKE256_Files[2]!
   let (t,p,f) ← testSpongeVariableOut file (fun  msg outLen =>
       (SHAKE256.mk |> (SHAKE256.absorb · msg) |> (SHAKE256.squeeze · outLen)).2 )
   IO.println s!"{file} total: {t} pass: {p} fail: {f}"
 
-  let file := SHA3_224Files.get! 2
+  let file := SHA3_224Files[2]!
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_224.hashData d
   IO.println s!"{file} success: {r}"
 
-  let file := SHA3_256Files.get! 2
+  let file := SHA3_256Files[2]!
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_256.hashData d
   IO.println s!"{file} success: {r}"
 
-  let file := SHA3_384Files.get! 2
+  let file := SHA3_384Files[2]!
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_384.hashData d
   IO.println s!"{file} success: {r}"
 
-  let file := SHA3_512Files.get! 2
+  let file := SHA3_512Files[2]!
   let r  ←  testHashMonteCarlo file $ fun d => SHA3_512.hashData d
   IO.println s!"{file} success: {r}"
 
-  let file := SHAKE128_Files.get! 3
+  let file := SHAKE128_Files[3]!
   let r ← testXofMonteCarlo file (fun  msg outLen =>
       (SHAKE128.mk |> (SHAKE128.absorb · msg) |> (SHAKE128.squeeze · outLen)).2 )
   IO.println s!"{file} success: {r}"
 
-  let file := SHAKE256_Files.get! 3
+  let file := SHAKE256_Files[3]!
   let r ← testXofMonteCarlo file (fun  msg outLen =>
       (SHAKE256.mk |> (SHAKE256.absorb · msg) |> (SHAKE256.squeeze · outLen)).2 )
   IO.println s!"{file} success: {r}"
