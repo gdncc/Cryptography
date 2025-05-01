@@ -5,7 +5,7 @@ Authors: Gerald Doussot
 -/
 
 import «Cryptography».Hashes.SHA3.Lemmas
-
+import Cryptography.Data.HexString
 set_option autoImplicit false
 
 /-!
@@ -149,7 +149,7 @@ private structure KeccakC (hf : HashFunction)  where
   buffer  : FixedBuffer
   bufPos : RateIndex hf.capacity := ⟨ 0, by simp [KeccakPPermutationSize]; omega ⟩
   outputBytesLen := 0
-  requestedLength := 0
+  lastReadPos : RateValue hf.capacity := ⟨ 0, by omega  ⟩
 
 private def mkKeccakCBase (hf : HashFunction) : KeccakC hf :=
   let A  := mkState
@@ -268,7 +268,7 @@ private def storeUInt64 (num : UInt64) : ByteArray :=
 private class Absorb (α : Type) (β : Type) where
   absorb : α  → β →  α
 
--- We force the caller to prove that  RateIndex pos + offset will not silently wrap as RateIndex is a Fin.
+-- We force the caller to prove that RateIndex pos + offset will not silently wrap as RateIndex is a Fin.
 -- if the implementation is correct, it should not happen but want to avoid
 @[always_inline,inline] private def RateIndex.add
   {n} (pos offset : RateIndex n)
@@ -306,23 +306,48 @@ instance {hf : HashFunction} : Absorb (AbsorbingKeccakC hf) ByteArray where
 private class Squeeze (α : Type) (β : Type) (γ : outParam Type) where
   squeeze : α  → β → γ
 
+-- As a learning exercise, we don't copy the whole state to a fixed size buffer and output that buffer on request
+-- This necessitates generating output directly from a sliding window over the state array.
 private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (len : Nat) : SqueezingKeccakC hf × ByteArray := Id.run do
   let mut k := k
   let mut output := ByteArray.mkEmpty len
-  let mut updatedOutputBytesLen := len + k.val.requestedLength
-  let requestedLength := k.val.requestedLength + len
-  let startingBlock := k.val.requestedLength % k.val.rate / 8
-  let startOffset := k.val.requestedLength % 8
-  while updatedOutputBytesLen > 0 do
-    let mut  blockSize : RateValue hf.capacity := ⟨ min updatedOutputBytesLen k.val.rate, by omega ⟩
-    for hi : i in [startingBlock: (blockSize + 7) / 8] do
-      have phi : i < (blockSize + 7) / 8:= hi.2.1
-      output := output.append $ storeUInt64 (k.val.A[i]'(by simp_all [KeccakPPermutationSize]; omega))
-    updatedOutputBytesLen := updatedOutputBytesLen - blockSize
-    if updatedOutputBytesLen > 0 then
-      k := {k with val := keccakP k.val}
-  ({k with val := {k.val with requestedLength := requestedLength}},
-    output.extract startOffset (len + startOffset))
+
+  let mut updatedOutputBytesLen := len
+
+  let mut startingBlock := k.val.lastReadPos.val % k.val.rate / 8
+  let mut startOffset := k.val.lastReadPos.val % 8
+
+  if (k.val.lastReadPos.val = k.val.rate) then
+    k := {k with val := keccakP k.val}
+    k := {k with val := { k.val with lastReadPos := ⟨ 0, by  omega⟩  }}
+    startingBlock := 0
+
+  -- temp variable to aid within bounds array access proofs
+  let mut newLastReadPos : RateValue hf.capacity := ⟨ 0, by omega⟩
+
+  repeat do
+    if hi : (updatedOutputBytesLen + k.val.lastReadPos) <= k.val.rate then
+      newLastReadPos := ⟨ updatedOutputBytesLen + k.val.lastReadPos, by omega  ⟩
+      break
+
+    for hi : i in [startingBlock: (k.val.rate + 7) / 8] do
+      have phi : i < (k.val.rate + 7) / 8 :=  hi.2.1
+      output := output.append $ storeUInt64 (k.val.A[i]'(by unfold KeccakPPermutationSize at phi; omega ))
+
+    updatedOutputBytesLen := updatedOutputBytesLen - (k.val.rate - k.val.lastReadPos)
+
+    k := {k with val := keccakP k.val}
+    k := {k with val := { k.val with lastReadPos := ⟨ 0,  by omega ⟩ }}
+    startingBlock := 0
+
+  if updatedOutputBytesLen > 0 then
+    for hi : i in [ startingBlock : (newLastReadPos + 7) / 8] do
+      have phi : i <  (newLastReadPos + 7) / 8 :=  hi.2.1
+      output := output.append $ storeUInt64 (k.val.A[i]'(by unfold KeccakPPermutationSize at phi; omega  ))
+
+    k := {k with val := { k.val with lastReadPos := ⟨ newLastReadPos, by omega ⟩   }}
+
+  (k , output.extract startOffset (len + startOffset))
 
 private instance {hf : HashFunction} : Squeeze (SqueezingKeccakC hf) Nat (Id (SqueezingKeccakC hf × ByteArray)) where
   squeeze  := squeezeAbsorbedInput
