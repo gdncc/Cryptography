@@ -5,7 +5,6 @@ Authors: Gerald Doussot
 -/
 
 import «Cryptography».Hashes.SHA3.Lemmas
-import Cryptography.Data.HexString
 set_option autoImplicit false
 
 /-!
