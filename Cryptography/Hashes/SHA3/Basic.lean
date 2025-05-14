@@ -59,7 +59,7 @@ private def rotationValues : Arr25 :=
    49, 43, 56, 46, 62, 3, 8, 50], by decide ⟩
 
 @[always_inline, inline] private def mkState : State :=
-  ⟨ mkArray 25 0, by decide ⟩
+  ⟨ Array.replicate 25 0, by decide ⟩
 
 instance : GetElem Arr25 Nat UInt64 (λ _ i ↦ i < 25) where
   getElem state idx _ :=  state.val[idx]
@@ -70,7 +70,7 @@ instance : GetElem Arr5 Nat UInt64 (λ _ i ↦ i < 5) where
 -- proof that array size does not change upon modification
 @[always_inline,inline] private def subtypeModify.{u} {α : Type u} {n : Nat} (xs : { val : Array α  // val.size = n }) (i : Nat) (elem: α  ) : { a : Array α  // a.size = n } :=
   let val := xs.val.modify i (λ _ => elem)
-  ⟨val, (Array.size_modify xs.val i (λ _ => elem )) ▸ xs.property⟩
+  ⟨val, (xs.val.size_modify) ▸ xs.property⟩
 
 
 -- max capacity for all SHA3/Shake instances (1024 / 8 + 1)
@@ -121,7 +121,7 @@ private abbrev FixedBuffer := {val : ByteArray // val.size =  KeccakPPermutation
 
 set_option maxRecDepth 1000 in
 @[always_inline,inline] private def mkFixedBuffer : FixedBuffer  :=
-    ⟨ ByteArray.mk (mkArray KeccakPPermutationSize 0), by trivial ⟩
+    ⟨ ByteArray.mk (Array.replicate KeccakPPermutationSize 0), by trivial ⟩
 
 -- theorem `size_set` from: https://github.com/leanprover-community/batteries/blob/ad3ba5ff13913874b80146b54d0a4e5b9b739451/Batteries/Data/ByteArray.lean#L51
 /-
@@ -178,8 +178,8 @@ The steps that comprise a round of KECCAK-p[b, nr] are denoted by θ,
 
 -- theta
 private def θ (A : State) : State := Id.run do
-  let mut C : Arr5 := ⟨ mkArray 5 0, by decide ⟩
-  let mut D : Arr5 := ⟨ mkArray 5 0, by decide ⟩
+  let mut C : Arr5 := ⟨ Array.replicate 5 0, by decide ⟩
+  let mut D : Arr5 := ⟨ Array.replicate 5 0, by decide ⟩
   let mut A := A
 
   for hx : x in [:5] do
@@ -244,7 +244,7 @@ Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
   {k with A := A}
 
 private def storeUInt64 (num : UInt64) : ByteArray :=
-  ByteArray.mk $ mkArray 8 0
+  ByteArray.mk $ Array.replicate 8 0
       |>.set 0 num.toUInt8
       |>.set 1 (num >>> 0x08).toUInt8
       |>.set 2 (num >>> 0x10).toUInt8
@@ -308,7 +308,7 @@ private class Squeeze (α : Type) (β : Type) (γ : outParam Type) where
 -- This necessitates generating output directly from a sliding window over the state array.
 private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (len : Nat) : SqueezingKeccakC hf × ByteArray := Id.run do
   let mut k := k
-  let mut output := ByteArray.mkEmpty len
+  let mut output := ByteArray.emptyWithCapacity len
 
   let mut updatedOutputBytesLen := len
 

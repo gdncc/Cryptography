@@ -36,13 +36,13 @@ def testSHA3Sponge (input : String) (resultLength : Nat) (fn: ByteArray →  Nat
 
 def testXOFChunked (f : XOF) (msg : ByteArray ) (outLen : Nat) (chunkSize : Nat) (expectedResult : String) := Id.run do
   let mut state := f.mk |> (f.absorb · msg) |> f.toSqueezing
-  let mut output := ByteArray.mkEmpty outLen
-  let mut bs := ByteArray.mkEmpty chunkSize
+  let mut output := ByteArray.emptyWithCapacity outLen
+  let mut bs := ByteArray.emptyWithCapacity chunkSize
   for _ in [:outLen / chunkSize] do
     ( state, bs ) := f.squeeze state chunkSize
     output := ByteArray.append output bs
   if outLen % chunkSize > 0 then
-    let mut bs2 := ByteArray.mkEmpty $ (outLen % chunkSize)
+    let mut bs2 := ByteArray.emptyWithCapacity $ (outLen % chunkSize)
     ( state, bs2 ) := f.squeeze state (outLen % chunkSize)
     output := ByteArray.append output bs2
   pure $ (HexString.toHexString output) == expectedResult
@@ -102,7 +102,7 @@ def testHashMonteCarlo (file : String) (fn: ByteArray → ByteArray ) := do
   let records := cavsfile.records
   let last_record := records[records.size - 1]!
   let mut seed ←  IO.ofExcept $ HexString.parse cavsfile.seed
-  let mut mds : Array ByteArray := mkArray 1001 $ ByteArray.mk #[]
+  let mut mds : Array ByteArray := Array.replicate 1001 $ ByteArray.mk #[]
   for _ in [0:100] do
     mds := mds.set! 0 seed
     for j in [1:1001] do
@@ -127,7 +127,7 @@ def testXofMonteCarlo (file : String) (fn: ByteArray → Nat →  ByteArray) := 
   let max := cavsfile.maxOutputLen / 8
   let mut range := max - min + 1
   let mut outputLen := max
-  let mut mds : Array ByteArray := mkArray 1001 $ ByteArray.mk #[]
+  let mut mds : Array ByteArray := Array.replicate 1001 $ ByteArray.mk #[]
   for _ in [0:100] do
     mds := mds.set! 0 seed
     for j in [1:1001] do
@@ -135,7 +135,7 @@ def testXofMonteCarlo (file : String) (fn: ByteArray → Nat →  ByteArray) := 
       let mut mdlen := mds[j - 1]!.size
       if mdlen < 16 then
         mdlen := 16 - mdlen
-        msg := (mds[j - 1]!.extract 0 16 ).append ( ByteArray.mk $  mkArray mdlen 0)
+        msg := (mds[j - 1]!.extract 0 16 ).append ( ByteArray.mk $  Array.replicate mdlen 0)
       else
         msg := mds[j - 1]!.extract 0 16
       let r := fn msg outputLen
@@ -180,8 +180,8 @@ def SHAKE256_Files :=
   "Cryptography/test/Hashes/SHA3/shakebytetestvectors/SHAKE256Monte.rsp"]
 
 def testHashEqUpdateFinal :=
-  let a := ByteArray.mk $ mkArray 10 1
-  let b := ByteArray.mk $ mkArray 20 2
+  let a := ByteArray.mk $ Array.replicate 10 1
+  let b := ByteArray.mk $ Array.replicate 20 2
   let c := a.append b
   let state := SHA3_256.mk |> (SHA3_256.update ·  a ) |> (SHA3_256.update ·  b )
   (HexString.toHexString $ SHA3_256.hashData c) == (HexString.toHexString  $ SHA3_256.final state)

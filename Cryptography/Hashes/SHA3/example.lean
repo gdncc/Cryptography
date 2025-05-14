@@ -23,9 +23,9 @@ def main :IO UInt32 := do
   let h := SHA3_256.hashData d
   IO.println $ HexString.toHexString h
 
-  let a := ByteArray.mk $ mkArray 10 1
-  let b := ByteArray.mk $ mkArray 20 2
-  let c := ByteArray.mk $ mkArray 30 3
+  let a := ByteArray.mk $ Array.replicate 10 1
+  let b := ByteArray.mk $ Array.replicate 20 2
+  let c := ByteArray.mk $ Array.replicate 30 3
   let state := SHA3_256.mk |> (SHA3_256.update ·  a) |> (SHA3_256.update · b)
   -- one more time for good measure, "later" in the code
   let state := SHA3_256.update state c
@@ -53,7 +53,7 @@ def main :IO UInt32 := do
   -- Transforms an absorbing sponge into a squeezing one (by absorbing any remaining input, and squeezing 0 bytes)
   -- This could be useful before entering a mutating loop of a given SHAKE context
   let mut ctx1 := SHAKE128.mk |> (SHAKE128.absorb · a ) |> (SHAKE128.toSqueezing · )
-  let mut s1 := ByteArray.mk $ mkArray 10 0
+  let mut s1 := ByteArray.mk $ Array.replicate 10 0
   for _ in [0:3] do
     (ctx1, s1) := SHAKE128.squeeze ctx1 10
     -- (do something with s1 SHAKE output)
