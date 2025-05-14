@@ -283,8 +283,8 @@ private def absorb
   let mut buffer := k.val.buffer
   let mut bufPos := k.val.bufPos
   for hi : i in [:inputBytes.size] do
+    buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
     if hif : bufPos.val == KeccakPPermutationSize - hf.capacity - 1 then
-      buffer := fixedBufferModify buffer ⟨ bufPos, by omega⟩  inputBytes[i]
       let mut A := k.val.A
       for hj : j in [:25] do
         have phj : j < 25 := hj.2.1
@@ -294,7 +294,6 @@ private def absorb
       k := {k with val := keccakP {k.val with A := A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}}
       bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
     else
-      buffer := fixedBufferModify buffer ⟨ bufPos, by omega ⟩  inputBytes[i]
       bufPos := RateIndex.add  bufPos  ⟨ 1, by simp [KeccakPPermutationSize]; omega⟩ ( by exact RateIndexLTBlockMinCapMinOne bufPos hif)
 
   {k with val := {k.val with buffer := buffer, bufPos := bufPos }}
