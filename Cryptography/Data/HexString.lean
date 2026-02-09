@@ -34,9 +34,9 @@ private partial def byteCore  (acc : ByteArray) : Parser ByteArray := do
     byteCore (acc.push (← byteChar))
 
 def parse (s : String) : Except String ByteArray :=
-  match (byteCore (ByteArray.mk #[]) s.mkIterator) with
+  match (byteCore (ByteArray.mk #[]) ⟨s, s.startPos⟩) with
   | ParseResult.success _ res => Except.ok res
-  | ParseResult.error it err  => Except.error s!"offset {repr it.i.byteIdx}: {err}"
+  | ParseResult.error it err  => Except.error s!"offset {repr it.2.offset.byteIdx}: {err}"
 
 -- ByteArray to String
 class ToHexString (α : Type u) where

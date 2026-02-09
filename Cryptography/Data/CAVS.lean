@@ -104,9 +104,9 @@ private def msgFileContent : Parser CAVSMsgFile := do
   return res
 
 private def parseMsgFile (s : String) : Except String CAVSMsgFile  :=
-  match (msgFileContent s.mkIterator) with
+  match (msgFileContent ⟨s, s.startPos⟩) with
   | ParseResult.success _ res => Except.ok res
-  | ParseResult.error it err  => Except.error s!"offset {repr it.i.byteIdx}: {err}"
+  | ParseResult.error it err  => Except.error s!"offset {repr it.2.offset.byteIdx}: {err}"
 
 def slurpMsgFile (pathname : String)   := do
   let contents ← IO.FS.readFile pathname
@@ -193,9 +193,9 @@ private def variableOutFileContent : Parser CAVSVariableOutFile := do
   return res
 
 private def parseVariableOutFile (s : String) : Except String CAVSVariableOutFile  :=
-  match (variableOutFileContent s.mkIterator) with
+  match (variableOutFileContent ⟨s, s.startPos⟩) with
   | ParseResult.success _ res => Except.ok res
-  | ParseResult.error it err  => Except.error s!"offset {repr it.i.byteIdx}: {err}"
+  | ParseResult.error it err  => Except.error s!"offset {repr it.2.offset.byteIdx}: {err}"
 
 def slurpVariableOutFile (pathname : String)   := do
   let contents ← IO.FS.readFile pathname
@@ -259,9 +259,9 @@ private def hashMonteFileContent : Parser CAVSHashMonteFile := do
   return res
 
 private def parseHashMonteFile (s : String) : Except String CAVSHashMonteFile  :=
-  match (hashMonteFileContent s.mkIterator) with
+  match (hashMonteFileContent ⟨s, s.startPos⟩) with
   | ParseResult.success _ res => Except.ok res
-  | ParseResult.error it err  => Except.error s!"offset {repr it.i.byteIdx}: {err}"
+  | ParseResult.error it err  => Except.error s!"offset {repr it.2.offset.byteIdx}: {err}"
 
 def slurpHashMonteFile (pathname : String)   := do
   let contents ← IO.FS.readFile pathname
@@ -327,9 +327,9 @@ private def xofMonteFileContent : Parser CAVSXofMonteFile := do
   return res
 
 private def parseXofMonteFile (s : String) : Except String CAVSXofMonteFile  :=
-  match (xofMonteFileContent s.mkIterator) with
+  match (xofMonteFileContent ⟨s, s.startPos⟩) with
   | ParseResult.success _ res => Except.ok res
-  | ParseResult.error it err  => Except.error s!"offset {repr it.i.byteIdx}: {err}"
+  | ParseResult.error it err  => Except.error s!"offset {repr it.2.offset.byteIdx}: {err}"
 
 def slurpXofMonteFile (pathname : String)   := do
   let contents ← IO.FS.readFile pathname

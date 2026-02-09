@@ -24,7 +24,7 @@ def testHashMsg (file : String) (fn: ByteArray → ByteArray )  :=  do
   let mut pass := 0
   let mut fail := 0
   for r in records do
-    match testSHA3HashData (r.msg.take $ r.len / 8 * 2) fn r.md with
+    match testSHA3HashData (r.msg.take (r.len / 8 * 2) |>.toString) fn r.md with
       | Except.ok true => pass := pass + 1
       | _ => fail := fail + 1
   pure (total , pass, fail)
@@ -54,7 +54,7 @@ def testSpongeMsgChunkedOutput (file : String) (f : XOF ) (chunkSize : Nat) :=  
   let mut pass := 0
   let mut fail := 0
   for r in records do
-      let d ←   IO.ofExcept $ HexString.parse (r.msg.take $ r.len / 8 * 2)
+      let d ←   IO.ofExcept $ HexString.parse (r.msg.take (r.len / 8 * 2) |>.toString)
       let res := testXOFChunked f d (cavsfile.len / 8)  chunkSize r.md
         if res == true then pass := pass + 1 else fail := fail + 1
    pure (total , pass, fail)
@@ -66,7 +66,7 @@ def testSpongeMsg (file : String) (fn: ByteArray → Nat →  ByteArray )  :=  d
   let mut pass := 0
   let mut fail := 0
   for r in records do
-    match testSHA3Sponge (r.msg.take $ r.len / 8 * 2) (cavsfile.len / 8) fn r.md with
+    match testSHA3Sponge (r.msg.take (r.len / 8 * 2) |>.toString) (cavsfile.len / 8) fn r.md with
       | Except.ok true => pass := pass + 1
       | _ => fail := fail + 1
   pure (total , pass, fail)
@@ -179,6 +179,16 @@ def SHAKE256_Files :=
   "Cryptography/test/Hashes/SHA3/shakebytetestvectors/SHAKE256VariableOut.rsp",
   "Cryptography/test/Hashes/SHA3/shakebytetestvectors/SHAKE256Monte.rsp"]
 
+def testSHAKE128LargeMultiSqueeze : Bool := Id.run do
+  let msg := ByteArray.mk (Array.replicate 1000 0)
+  let mut state := SHAKE128.mk |> (SHAKE128.absorb · msg) |> SHAKE128.toSqueezing
+  let mut bs := ByteArray.empty
+  (state, bs) := SHAKE128.squeeze state 1000
+  (state, bs) := SHAKE128.squeeze state 1000
+  let _ := state
+  let last8 := bs.extract (bs.size - 8) bs.size
+  (HexString.toHexString last8) == "d13d74b66b5bc60d"
+
 def testHashEqUpdateFinal :=
   let a := ByteArray.mk $ Array.replicate 10 1
   let b := ByteArray.mk $ Array.replicate 20 2
@@ -189,6 +199,7 @@ def testHashEqUpdateFinal :=
 def main : IO Unit := do
 
   IO.println s!"testHashEqUpdateFinal() success:  {testHashEqUpdateFinal}"
+  IO.println s!"testSHAKE128LargeMultiSqueeze() success: {testSHAKE128LargeMultiSqueeze}"
 
   for file in (SHA3_224Files.dropLast ) do
     let (t,p,f) ← testHashMsg file SHA3_224.hashData

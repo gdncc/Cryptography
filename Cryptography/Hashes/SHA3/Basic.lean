@@ -129,9 +129,9 @@ Copyright (c) 2023 François G. Dorais. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: François G. Dorais
 -/
-@[simp] theorem size_set (a : ByteArray) (i : Fin a.size) (v : UInt8) :
-    (a.set i v).size = a.size :=
-  Array.size_set ..
+@[simp] theorem size_set (a : ByteArray) (i : Nat) (v : UInt8) (h : i < a.size) :
+    (a.set i v h).size = a.size :=
+  Array.size_set h
 
 @[always_inline,inline] private def fixedBufferModify (fb : FixedBuffer) (i : Fin fb.val.size) (elem: UInt8) : FixedBuffer :=
   let val := fb.val.set i  elem
@@ -235,24 +235,25 @@ private def χ (A' : State) : State := Id.run do
 The KECCAK-p[b, nr] permutation consists of nr iterations of:
 Rnd(A, ir) = iota(chi(π(ρ(theta(A)))), ir).
 -/
-@[always_inline,inline] private def keccakP {hf : HashFunction} (k : KeccakC hf) : KeccakC hf := Id.run do
-  let mut A := k.A
+@[always_inline,inline] private def keccakP (A : State) : State := Id.run do
+  let mut A := A
   -- KECCAK[c] number round nr := 24
   for h :  round in [:roundConstants.size] do
     let ⟨_h₁, h₂⟩ := h -- h1 : col.start <= round, h2 := round < 25
     A :=  A |> θ |> ρπ |> χ |> (ι · round h₂.1  )
-  {k with A := A}
+  A
 
 private def storeUInt64 (num : UInt64) : ByteArray :=
-  ByteArray.mk $ Array.replicate 8 0
-      |>.set 0 num.toUInt8
-      |>.set 1 (num >>> 0x08).toUInt8
-      |>.set 2 (num >>> 0x10).toUInt8
-      |>.set 3 (num >>> 0x18).toUInt8
-      |>.set 4 (num >>> 0x20).toUInt8
-      |>.set 5 (num >>> 0x28).toUInt8
-      |>.set 6 (num >>> 0x30).toUInt8
-      |>.set 7 (num >>> 0x38).toUInt8
+  ByteArray.mk #[
+    num.toUInt8,
+    (num >>> 0x08).toUInt8,
+    (num >>> 0x10).toUInt8,
+    (num >>> 0x18).toUInt8,
+    (num >>> 0x20).toUInt8,
+    (num >>> 0x28).toUInt8,
+    (num >>> 0x30).toUInt8,
+    (num >>> 0x38).toUInt8
+  ]
 
 @[always_inline,inline] private def FixedBuffer.toUInt64LE  (fb : FixedBuffer) (index : Nat) (h : 7 + index < fb.val.size  ) : UInt64 :=
   (fb.val[7 + index]'(by rw [fb.2]; omega )).toUInt64 <<< 0x38 |||
@@ -291,12 +292,12 @@ private def absorb
         let start := j <<< 3 -- lane size = 8
         A := subtypeModify A j ((A[j]) ^^^
                                   (FixedBuffer.toUInt64LE buffer start (by simp [KeccakPPermutationSize]; omega)))
-      k := {k with val := keccakP {k.val with A := A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}}
+      k := ⟨{k.val with A := keccakP A, buffer := buffer, bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩}, k.property⟩
       bufPos := ⟨ 0, by simp [KeccakPPermutationSize]; omega⟩
     else
       bufPos := RateIndex.add  bufPos  ⟨ 1, by simp [KeccakPPermutationSize]; omega⟩ ( by exact RateIndexLTBlockMinCapMinOne bufPos hif)
 
-  {k with val := {k.val with buffer := buffer, bufPos := bufPos }}
+  ⟨{k.val with buffer := buffer, bufPos := bufPos}, k.property⟩
 
 instance {hf : HashFunction} : Absorb (AbsorbingKeccakC hf) ByteArray where
   absorb := absorb
@@ -316,8 +317,7 @@ private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (
   let mut startOffset := k.val.lastReadPos.val % 8
 
   if (k.val.lastReadPos.val = k.val.rate) then
-    k := {k with val := keccakP k.val}
-    k := {k with val := { k.val with lastReadPos := ⟨ 0, by  omega⟩  }}
+    k := ⟨{k.val with A := keccakP k.val.A, lastReadPos := ⟨ 0, by omega⟩}, k.property⟩
     startingBlock := 0
 
   -- temp variable to aid within bounds array access proofs
@@ -334,8 +334,7 @@ private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (
 
     updatedOutputBytesLen := updatedOutputBytesLen - (k.val.rate - k.val.lastReadPos)
 
-    k := {k with val := keccakP k.val}
-    k := {k with val := { k.val with lastReadPos := ⟨ 0,  by omega ⟩ }}
+    k := ⟨{k.val with A := keccakP k.val.A, lastReadPos := ⟨ 0, by omega⟩}, k.property⟩
     startingBlock := 0
 
   if updatedOutputBytesLen > 0 then
@@ -343,7 +342,7 @@ private def squeezeAbsorbedInput {hf : HashFunction} (k : SqueezingKeccakC hf) (
       have phi : i <  (newLastReadPos + 7) / 8 :=  hi.2.1
       output := output.append $ storeUInt64 (k.val.A[i]'(by unfold KeccakPPermutationSize at phi; omega  ))
 
-    k := {k with val := { k.val with lastReadPos := ⟨ newLastReadPos, by omega ⟩   }}
+    k := ⟨{k.val with lastReadPos := ⟨ newLastReadPos, by omega⟩}, k.property⟩
 
   (k , output.extract startOffset (len + startOffset))
 
@@ -379,7 +378,7 @@ private def squeezeNotFullyAbsorbedInput {hf : HashFunction} (ak : AbsorbingKecc
     let start := i <<< 3
     A := subtypeModify A i ((A[i]) ^^^
                               (FixedBuffer.toUInt64LE  buffer start (by simp [KeccakPPermutationSize]; omega)))
-  ak := {ak with val := keccakP {ak.val with A := A, buffer := buffer}}
+  ak := ⟨{ak.val with A := keccakP A, buffer := buffer}, ak.property⟩
   -- squeeze
   let sk : SqueezingKeccakC hf := ⟨ {ak.val with state := SpongeState.squeezing}, by trivial ⟩
   Squeeze.squeeze sk len
