@@ -425,3 +425,15 @@ def SHA3_384 : HashFunction := HashFunction.ofParams 96 0x06 48
 def SHA3_512 : HashFunction := HashFunction.ofParams 128 0x06 64
 def SHAKE128 : XOF := HashFunction.ofParams 32 0x1f 32
 def SHAKE256 : XOF := HashFunction.ofParams 64 0x1f 64
+
+/-
+Keccak (original, pre-NIST-standardization) hash functions. These use
+the same KECCAK-p[1600,24] permutation and capacities as their SHA-3
+counterparts, but with the original `pad10*1` multi-rate padding
+(delimiter `0x01`) instead of the SHA-3 domain-separated padding
+(`0x06`). Keccak-256 is the variant used by Ethereum.
+-/
+def Keccak_224 : HashFunction := HashFunction.ofParams 56 0x01 28
+def Keccak_256 : HashFunction := HashFunction.ofParams 64 0x01 32
+def Keccak_384 : HashFunction := HashFunction.ofParams 96 0x01 48
+def Keccak_512 : HashFunction := HashFunction.ofParams 128 0x01 64

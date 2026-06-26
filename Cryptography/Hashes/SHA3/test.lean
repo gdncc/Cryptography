@@ -167,6 +167,22 @@ def SHA3_512Files :=
   "Cryptography/test/Hashes/SHA3/sha-3bytetestvectors/SHA3_512LongMsg.rsp",
   "Cryptography/test/Hashes/SHA3/sha-3bytetestvectors/SHA3_512Monte.rsp"]
 
+def Keccak_224Files :=
+  ["Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_224ShortMsg.rsp",
+  "Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_224LongMsg.rsp"]
+
+def Keccak_256Files :=
+  ["Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_256ShortMsg.rsp",
+  "Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_256LongMsg.rsp"]
+
+def Keccak_384Files :=
+  ["Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_384ShortMsg.rsp",
+  "Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_384LongMsg.rsp"]
+
+def Keccak_512Files :=
+  ["Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_512ShortMsg.rsp",
+  "Cryptography/test/Hashes/SHA3/keccakbytetestvectors/Keccak_512LongMsg.rsp"]
+
 def SHAKE128_Files :=
   ["Cryptography/test/Hashes/SHA3/shakebytetestvectors/SHAKE128ShortMsg.rsp",
   "Cryptography/test/Hashes/SHA3/shakebytetestvectors/SHAKE128LongMsg.rsp",
@@ -215,6 +231,22 @@ def main : IO Unit := do
 
   for file in (SHA3_512Files.dropLast ) do
     let (t,p,f) ← testHashMsg file SHA3_512.hashData
+    IO.println s!"{file} total: {t} pass: {p} fail: {f}"
+
+  for file in Keccak_224Files do
+    let (t,p,f) ← testHashMsg file Keccak_224.hashData
+    IO.println s!"{file} total: {t} pass: {p} fail: {f}"
+
+  for file in Keccak_256Files do
+    let (t,p,f) ← testHashMsg file Keccak_256.hashData
+    IO.println s!"{file} total: {t} pass: {p} fail: {f}"
+
+  for file in Keccak_384Files do
+    let (t,p,f) ← testHashMsg file Keccak_384.hashData
+    IO.println s!"{file} total: {t} pass: {p} fail: {f}"
+
+  for file in Keccak_512Files do
+    let (t,p,f) ← testHashMsg file Keccak_512.hashData
     IO.println s!"{file} total: {t} pass: {p} fail: {f}"
 
   for file in (SHAKE128_Files.take 2 ) do

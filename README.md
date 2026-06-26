@@ -15,6 +15,13 @@ functions, SHA3-224, SHA3-256, SHA3-384, and SHA3-512, and two extendable-output
 functions (XOFs), SHAKE128 and SHAKE256 of the SHA-3 family of functions in pure
 Lean 4. It provides one-shot, and streaming APIs.
 
+The four original Keccak hash functions (Keccak-224, Keccak-256, Keccak-384,
+Keccak-512) as proposed to NIST before standardization are also included.
+These use the same `KECCAK-p[1600,24]` permutation and capacities as their
+SHA-3 counterparts, but with the original `pad10*1` padding (delimiter
+`0x01`) instead of the SHA-3 domain-separated padding (`0x06`). Keccak-256
+is the variant used by Ethereum.
+
 The library makes use of many Lean 4 features, including dependent typing, type
 classes, and proofs.
 
